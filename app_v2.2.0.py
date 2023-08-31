@@ -18,16 +18,14 @@ conn.close()
 df_secap["Data"] = pd.to_datetime(df_secap["Data"], dayfirst=True)
 start_date = df_secap["Data"].max()
 end_date = df_secap["Data"].max()
-timeline_postagem_gccap = df_secap.groupby('Data')['Objeto'].count().tail(15)
-timeline_clientes = df_secap[df_secap['Data'] >= timeline_postagem_gccap.index.min()]
+timeline_postagem_secap = df_secap.groupby('Data')['Objeto'].count().tail(15)
+timeline_clientes = df_secap[df_secap['Data'] >= timeline_postagem_secap.index.min()]
 
 def atualiza_base_dados(start_date, end_date):
-    primeiro_dia = start_date
-    ultimo_dia = end_date
-    range_date = df_secap[(df_secap["Data"] >= primeiro_dia) & (df_secap["Data"] <= ultimo_dia)]
+    range_date = df_secap[(df_secap["Data"] >= start_date) & (df_secap["Data"] <= end_date)]
     total_postado = range_date.groupby('Cliente')['Objeto'].count()
     total_faturado = range_date.groupby('Cliente')['Valor'].sum()
-    clientes_unicos = range_date[range_date['Cliente'] != 'GCCAP']['Cliente'].unique()
+    clientes_unicos = range_date['Cliente'].unique()
     clientes_ordenados = sorted(clientes_unicos, key=lambda c: total_postado.get(c, 0), reverse=True)
     return range_date, total_postado, total_faturado, clientes_unicos, clientes_ordenados
 
@@ -140,7 +138,7 @@ main_content = html.Div(
                         [
                             dbc.CardHeader(html.Strong("EXPRESSO", style={'font-size': '16px', 'font-weight': 'bold'})),
                             dbc.CardBody(
-                                dcc.Graph(id='graph-sedex')
+                                dcc.Graph(id='graph-expresso')
                             ),
                         ],
                         className="mb-3 text-center",
@@ -152,7 +150,7 @@ main_content = html.Div(
                         [
                             dbc.CardHeader(html.Strong("ECONÔMICO", style={'font-size': '16px', 'font-weight': 'bold'})),
                             dbc.CardBody(
-                                dcc.Graph(id='graph-pac')
+                                dcc.Graph(id='graph-economico')
                             ),
                         ],
                         className="mb-3 text-center",
@@ -175,7 +173,7 @@ main_content = html.Div(
             [
                 dbc.CardHeader(html.Strong("Postagem EXPRESSA por Estados", style={'font-size': '16px', 'font-weight': 'bold'})),
                 dbc.CardBody(
-                    dcc.Graph(id='graph-estados-sdx')
+                    dcc.Graph(id='graph-estados-expresso')
                 ),
             ],
             className="mb-3 text-center",
@@ -184,7 +182,7 @@ main_content = html.Div(
             [
                 dbc.CardHeader(html.Strong("Postagem ECONOMICA por Estados", style={'font-size': '16px', 'font-weight': 'bold'})),
                 dbc.CardBody(
-                    dcc.Graph(id='graph-estados-pac')
+                    dcc.Graph(id='graph-estados-economico')
                 ),
             ],
             className="mb-3 text-center",
@@ -245,11 +243,11 @@ def renderizar_botoes_clientes(clientes_ordenados, total_postado, total_faturado
 @app.callback(
     Output('graph-servico-bar', 'figure'),
     Output('graph-postagem-bar', 'figure'),
-    Output('graph-sedex', 'figure'),
-    Output('graph-pac', 'figure'),
+    Output('graph-expresso', 'figure'),
+    Output('graph-economico', 'figure'),
     Output('graph-timeline', 'figure'),
-    Output('graph-estados-sdx', 'figure'),
-    Output('graph-estados-pac', 'figure'),
+    Output('graph-estados-expresso', 'figure'),
+    Output('graph-estados-economico', 'figure'),
 
     Output('subtitle', 'children'),
     [
@@ -266,7 +264,7 @@ def update_graphs(gccap_clicks, *cliente_clicks):
 
     if clicked_button_id == 'secap-button':
         df_filtered = range_date
-        total_objetos_por_data = timeline_postagem_gccap
+        total_objetos_por_data = timeline_postagem_secap
         subtitle = ""
         postagem = range_date.groupby('Postagem')['Objeto'].count()
         servico = range_date.groupby('Serviço')['Objeto'].count().sort_index(ascending=False)
@@ -284,23 +282,23 @@ def update_graphs(gccap_clicks, *cliente_clicks):
         
            
 
-    total_selex_por_destino = df_filtered[df_filtered['Serviço'] == 'EXPRESSO'].groupby('Destino')['Objeto'].count()
-    total_pac_por_destino = df_filtered[df_filtered['Serviço'] == 'ECONÔMICO'].groupby('Destino')['Objeto'].count()
+    total_expresso_por_destino = df_filtered[df_filtered['Serviço'] == 'EXPRESSO'].groupby('Destino')['Objeto'].count()
+    total_economico_por_destino = df_filtered[df_filtered['Serviço'] == 'ECONÔMICO'].groupby('Destino')['Objeto'].count()
     df_filtered['UF'] = df_filtered['UF'].str.upper()
-    estados_sdx = df_filtered[df_filtered['Serviço'] == 'EXPRESSO'].groupby('UF')['Objeto'].count().sort_values(ascending=False)
-    estados_pac = df_filtered[df_filtered['Serviço'] == 'ECONÔMICO'].groupby('UF')['Objeto'].count().sort_values(ascending=False)
+    estados_expresso = df_filtered[df_filtered['Serviço'] == 'EXPRESSO'].groupby('UF')['Objeto'].count().sort_values(ascending=False)
+    estados_economico = df_filtered[df_filtered['Serviço'] == 'ECONÔMICO'].groupby('UF')['Objeto'].count().sort_values(ascending=False)
 
    
     cores = {'OUTROS ESTADOS': 'red', 'RIO DE JANEIRO': 'green'}
-    cores_grafico_sedex = [cores.get(valor, 'gray') for valor in total_selex_por_destino.index]
-    cores_grafico_pac = [cores.get(valor, 'gray') for valor in total_pac_por_destino.index]
+    cores_grafico_expresso = [cores.get(valor, 'gray') for valor in total_expresso_por_destino.index]
+    cores_grafico_economico = [cores.get(valor, 'gray') for valor in total_economico_por_destino.index]
 
 
-    fig_sedex = go.Figure(data=[go.Pie(labels=total_selex_por_destino.index, values=total_selex_por_destino.values, marker=dict(colors=cores_grafico_sedex))])
-    fig_sedex.update_layout(title="Objetos por Destino")
+    fig_expresso = go.Figure(data=[go.Pie(labels=total_expresso_por_destino.index, values=total_expresso_por_destino.values, marker=dict(colors=cores_grafico_expresso))])
+    fig_expresso.update_layout(title="Objetos por Destino")
 
-    fig_pac = go.Figure(data=[go.Pie(labels=total_pac_por_destino.index, values=total_pac_por_destino.values, marker=dict(colors=cores_grafico_pac))])
-    fig_pac.update_layout(title="Objetos por Destino")
+    fig_economico = go.Figure(data=[go.Pie(labels=total_economico_por_destino.index, values=total_economico_por_destino.values, marker=dict(colors=cores_grafico_economico))])
+    fig_economico.update_layout(title="Objetos por Destino")
 
 
     cores_servico = {'EXPRESSO': '#FFD700', 'ECONÔMICO': '#0000CD'}
@@ -323,17 +321,17 @@ def update_graphs(gccap_clicks, *cliente_clicks):
     fig_timeline.update_traces(marker=dict(color='#FFD700'), textangle=0)
     fig_timeline.update_layout(title="Objetos Postados")
 
-    fig_estados_sdx = go.Figure(data=[go.Bar(x=estados_sdx.index, y=estados_sdx.values, text=estados_sdx.values, textposition='auto')])
-    fig_estados_sdx.update_traces(marker=dict(color='#FFD700'), textangle=0)
-    fig_estados_sdx.update_layout()
+    fig_estados_expresso = go.Figure(data=[go.Bar(x=estados_expresso.index, y=estados_expresso.values, text=estados_expresso.values, textposition='auto')])
+    fig_estados_expresso.update_traces(marker=dict(color='#FFD700'), textangle=0)
+    fig_estados_expresso.update_layout()
 
-    fig_estados_pac = go.Figure(data=[go.Bar(x=estados_pac.index, y=estados_pac.values, text=estados_pac.values, textposition='auto')])
-    fig_estados_pac.update_traces(marker=dict(color='#0000CD'), textangle=0)
-    fig_estados_pac.update_layout()
+    fig_estados_economico = go.Figure(data=[go.Bar(x=estados_economico.index, y=estados_economico.values, text=estados_economico.values, textposition='auto')])
+    fig_estados_economico.update_traces(marker=dict(color='#0000CD'), textangle=0)
+    fig_estados_economico.update_layout()
    
 
 
-    return fig_servico, fig_tipo_postagem, fig_sedex, fig_pac, fig_timeline, fig_estados_sdx, fig_estados_pac, subtitle
+    return fig_servico, fig_tipo_postagem, fig_expresso, fig_economico, fig_timeline, fig_estados_expresso, fig_estados_economico, subtitle
 
 
 if __name__ == '__main__':
