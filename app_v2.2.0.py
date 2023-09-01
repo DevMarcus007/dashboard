@@ -7,8 +7,9 @@ from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 from babel.numbers import format_number, format_decimal
 from datetime import date
-import datetime
-
+import json
+import requests
+import plotly.express as px
 
 conn = sqlite3.connect('operation_base.db')
 query = "SELECT * FROM postagens"
@@ -20,6 +21,10 @@ start_date = df_secap["Data"].max()
 end_date = df_secap["Data"].max()
 timeline_postagem_secap = df_secap.groupby('Data')['Objeto'].count().tail(15)
 timeline_clientes = df_secap[df_secap['Data'] >= timeline_postagem_secap.index.min()]
+
+geojson_url = "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson"
+response = requests.get(geojson_url)
+geojson_data = response.json()
 
 def atualiza_base_dados(start_date, end_date):
     range_date = df_secap[(df_secap["Data"] >= start_date) & (df_secap["Data"] <= end_date)]
@@ -285,9 +290,7 @@ def update_graphs(gccap_clicks, *cliente_clicks):
     total_expresso_por_destino = df_filtered[df_filtered['Serviço'] == 'EXPRESSO'].groupby('Destino')['Objeto'].count()
     total_economico_por_destino = df_filtered[df_filtered['Serviço'] == 'ECONÔMICO'].groupby('Destino')['Objeto'].count()
     df_filtered['UF'] = df_filtered['UF'].str.upper()
-    estados_expresso = df_filtered[df_filtered['Serviço'] == 'EXPRESSO'].groupby('UF')['Objeto'].count().sort_values(ascending=False)
-    estados_economico = df_filtered[df_filtered['Serviço'] == 'ECONÔMICO'].groupby('UF')['Objeto'].count().sort_values(ascending=False)
-
+    
    
     cores = {'OUTROS ESTADOS': 'red', 'RIO DE JANEIRO': 'green'}
     cores_grafico_expresso = [cores.get(valor, 'gray') for valor in total_expresso_por_destino.index]
@@ -321,19 +324,47 @@ def update_graphs(gccap_clicks, *cliente_clicks):
     fig_timeline.update_traces(marker=dict(color='#FFD700'), textangle=0)
     fig_timeline.update_layout(title="Objetos Postados")
 
-    fig_estados_expresso = go.Figure(data=[go.Bar(x=estados_expresso.index, y=estados_expresso.values, text=estados_expresso.values, textposition='auto')])
-    fig_estados_expresso.update_traces(marker=dict(color='#FFD700'), textangle=0)
-    fig_estados_expresso.update_layout()
-
-    fig_estados_economico = go.Figure(data=[go.Bar(x=estados_economico.index, y=estados_economico.values, text=estados_economico.values, textposition='auto')])
-    fig_estados_economico.update_traces(marker=dict(color='#0000CD'), textangle=0)
-    fig_estados_economico.update_layout()
+    todos_estados = pd.DataFrame({'UF': range_date.UF.unique()})
+    total_expresso_por_destino = df_filtered[df_filtered['Serviço'] == 'EXPRESSO']
+    total_economico_por_destino = df_filtered[df_filtered['Serviço'] == 'ECONÔMICO']
    
+    total_postagem_por_estado = total_expresso_por_destino.groupby('UF')['Objeto'].count().reset_index()
+
+    dados_postagem_estados = todos_estados.merge(total_postagem_por_estado, on='UF', how='left').fillna(0)
+
+    fig_estados_expresso = px.choropleth(dados_postagem_estados,
+                        geojson=geojson_data,
+                        locations='UF',
+                        featureidkey="properties.sigla",
+                        color='Objeto',
+                        hover_name='UF',
+                        color_continuous_scale='matter',
+                        labels={'Objeto': 'Quantidade de Objetos'},
+                        template='plotly')
+
+    fig_estados_expresso.update_geos(fitbounds="locations", visible=False)
+
+
+    total_postagem_por_estado = total_economico_por_destino.groupby('UF')['Objeto'].count().reset_index()
+
+    dados_postagem_estados = todos_estados.merge(total_postagem_por_estado, on='UF', how='left').fillna(0)
+
+    fig_estados_economico = px.choropleth(dados_postagem_estados,
+                        geojson=geojson_data,
+                        locations='UF',
+                        featureidkey="properties.sigla",
+                        color='Objeto',
+                        hover_name='UF',
+                        color_continuous_scale='matter',
+                        labels={'Objeto': 'Quantidade de Objetos'},
+                        template='plotly')
+
+    fig_estados_economico.update_geos(fitbounds="locations", visible=False)
 
 
     return fig_servico, fig_tipo_postagem, fig_expresso, fig_economico, fig_timeline, fig_estados_expresso, fig_estados_economico, subtitle
 
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port=8050, debug=False)
+    app.run_server(host='0.0.0.0', port=8050, debug=True)
 
