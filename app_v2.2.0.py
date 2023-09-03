@@ -5,7 +5,7 @@ import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
-from babel.numbers import format_number, format_decimal
+from babel.numbers import format_number, format_decimal, format_currency
 from datetime import date, datetime
 import json
 import requests
@@ -30,12 +30,11 @@ def atualiza_base_dados(start_date, end_date):
     range_date = df_secap[(df_secap["Data"] >= start_date) & (df_secap["Data"] <= end_date)]
     total_postado = range_date.groupby('Cliente')['Objeto'].count()
     total_faturado = range_date.groupby('Cliente')['Valor'].sum()
-    clientes_unicos = range_date['Cliente'].unique()
-    clientes_ordenados = sorted(clientes_unicos, key=lambda c: total_postado.get(c, 0), reverse=True)
-    return range_date, total_postado, total_faturado, clientes_unicos, clientes_ordenados
+    clientes_unicos = sorted(range_date['Cliente'].unique())
+    return range_date, total_postado, total_faturado, clientes_unicos
 
 
-range_date, total_postado, total_faturado, clientes_unicos, clientes_ordenados = atualiza_base_dados(start_date, end_date)
+range_date, total_postado, total_faturado, clientes_unicos = atualiza_base_dados(start_date, end_date)
 
 
 secap_button = dbc.Button(
@@ -43,26 +42,19 @@ secap_button = dbc.Button(
         dbc.CardImg(
             src="assets/logo_secap.png",
             top=True,
-            style={'width': '60px', 'height': '50px', 'margin': '0 auto'},
+            style={'width': '90px', 'height': '75px', 'margin': '0 auto'},
             className="text-center"
         ),
         dbc.CardBody(
             [
-                html.P("Total Captado", className="card-title", style={'font-size': '18px', 'font-weight': 'bolder'}),
-                dbc.Row(
-                    [
-                        dbc.Col(html.P(f"Objetos: {format_number(total_postado.sum(), locale='pt_BR')}"), width="auto", style={'font-size': '15px'}),
-                        dbc.Col(html.P(f"Faturamento: R$ {format_decimal(total_faturado.sum(), locale='pt_BR')}"), width="auto", style={'font-size': '15px'}),
-                    ],
-                    className="my-1 flex-wrap"
-                ),
+                html.P("Setor de Captação", className="card-title", style={'font-size': '18px', 'font-weight': 'bolder'}),
             ]
         ),
     ],
     id="secap-button",
     n_clicks=0,
     className="mb-3 btn btn-outline-secondary btn-lg btn-block btn-3d",
-    style={'width': '220px', 'height': '170px', 'background-color': '#F2F2F2'}
+    style={'width': '200px', 'height': '150px', 'background-color': '#F2F2F2'}
 )
 
 buttons = [
@@ -71,28 +63,21 @@ buttons = [
             dbc.CardImg(
                 src=f"assets/logo_{cliente.lower()}.png",
                 top=True,
-                style={'width': '60px', 'height': '50px', 'margin': '0 auto'},
+                style={'width': '90px', 'height': '75px', 'margin': '0 auto'},
                 className="text-center"
             ),
             dbc.CardBody(
                 [
                     html.P(cliente, className="card-title", style={'font-size': '18px', 'font-weight': 'bolder'}),
-                    dbc.Row(
-                        [
-                            dbc.Col(html.P(f"Objetos: {format_number(total_postado.get(cliente, 0), locale='pt_BR')}"), width="auto", style={'font-size': '15px'}),
-                            dbc.Col(html.P(f"Faturamento: R$ {format_decimal(total_faturado.get(cliente, 0), locale='pt_BR')}"), width="auto", style={'font-size': '15px'}),
-                        ],
-                        className="my-1 flex-wrap"
-                    ),
                 ]
             ),
         ],
         id=f"cliente-button-{cliente}",
         n_clicks=0,
         className="mb-3 btn btn-outline-secondary btn-lg btn-block btn-3d",
-        style={'width': '220px', 'height': '170px', 'background-color': '#F2F2F2'}
+        style={'width': '200px', 'height': '150px', 'background-color': '#F2F2F2'}
     )
-    for cliente in clientes_ordenados
+    for cliente in clientes_unicos
 ]
 
 buttons.insert(0, secap_button)
@@ -128,10 +113,38 @@ main_content = html.Div(
         className='d-flex justify-content-end'
     ),
     
-        html.H2(f"Setor de Captação - Operação de {end_date.strftime('%d/%m/%Y')}", className="text-center"),
         html.H2(id='date-selected', className="text-center"),
 
         html.Div(id='subtitle', className="text-center"),
+        dbc.Row(
+            [
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardHeader(html.Strong("Postagem", style={'font-size': '16px', 'font-weight': 'bold'})),
+                            dbc.CardBody(
+                                dcc.Graph(id='graph-postagem-funil')
+                            ),
+                        ],
+                        className="mb-3 text-center",
+                    ),
+                    width={'size': 6, 'sm': 12, 'md': 6}
+                ),
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardHeader(html.Strong("Faturamento", style={'font-size': '16px', 'font-weight': 'bold'})),
+                            dbc.CardBody(
+                                dcc.Graph(id='graph-faturamento-funil')
+                            ),
+                        ],
+                        className="mb-3 text-center",
+                    ),
+                    width={'size': 6, 'sm': 12, 'md': 6}
+                ),
+            ]
+        ),
+
         dbc.Row(
             [
                 dbc.Col(
@@ -149,7 +162,7 @@ main_content = html.Div(
                 dbc.Col(
                     dbc.Card(
                         [
-                            dbc.CardHeader(html.Strong("Postagem", style={'font-size': '16px', 'font-weight': 'bold'})),
+                            dbc.CardHeader(html.Strong("Tipo", style={'font-size': '16px', 'font-weight': 'bold'})),
                             dbc.CardBody(
                                 dcc.Graph(id='graph-postagem-bar')
                             ),
@@ -188,6 +201,7 @@ main_content = html.Div(
                 ),
             ]
         ),
+        
         dbc.Card(
             [
                 dbc.CardHeader(html.Strong("Timeline", style={'font-size': '16px', 'font-weight': 'bold'})),
@@ -198,24 +212,37 @@ main_content = html.Div(
             className="mb-3 text-center",
         ),
 
-        dbc.Card(
+        dbc.Row(
             [
-                dbc.CardHeader(html.Strong("Postagem EXPRESSA por Estados", style={'font-size': '16px', 'font-weight': 'bold'})),
-                dbc.CardBody(
-                    dcc.Graph(id='graph-estados-expresso')
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardHeader(html.Strong("Postagem EXPRESSA por Estados", style={'font-size': '16px', 'font-weight': 'bold'})),
+                            dbc.CardBody(
+                                dcc.Graph(id='graph-estados-expresso')
+                            ),
+                        ],
+                        className="mb-3 text-center",
+                    ),
+                    width={'size': 6, 'sm': 12, 'md': 6}
                 ),
-            ],
-            className="mb-3 text-center",
-        ),
-        dbc.Card(
-            [
-                dbc.CardHeader(html.Strong("Postagem ECONOMICA por Estados", style={'font-size': '16px', 'font-weight': 'bold'})),
-                dbc.CardBody(
-                    dcc.Graph(id='graph-estados-economico')
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardHeader(html.Strong("Postagem ECONOMICA por Estados", style={'font-size': '16px', 'font-weight': 'bold'})),
+                            dbc.CardBody(
+                                dcc.Graph(id='graph-estados-economico')
+                            ),
+                        ],
+                        className="mb-3 text-center",
+                    ),
+                    width={'size': 6, 'sm': 12, 'md': 6}
                 ),
-            ],
-            className="mb-3 text-center",
+            ]
         ),
+
+        dcc.Location(id='url', refresh=True),
+
     ],
     style={"padding": "2rem"},
 )
@@ -234,44 +261,11 @@ app.layout = dbc.Container(
     style={"position": "absolute"}
 )
 
-def renderizar_botoes_clientes(clientes_ordenados, total_postado, total_faturado):
-    botoes_clientes = []
-    for cliente in clientes_ordenados:
-        botoes_clientes.append(
-            dbc.Button(
-                [
-                    dbc.CardImg(
-                        src=f"assets/logo_{cliente.lower()}.png",
-                        top=True,
-                        style={'width': '80px', 'height': '60px', 'margin': '0 auto'},
-                        className="text-center"
-                    ),
-                    dbc.CardBody(
-                        [
-                            html.H5(cliente, className="card-title"),
-                            dbc.Row(
-                                [
-                                    dbc.Col(html.P(f"Objetos: {format_number(total_postado.get(cliente, 0), locale='pt_BR')}"), width="auto"),
-                                    dbc.Col(html.P(f"Faturamento: R$ {format_decimal(total_faturado.get(cliente, 0), locale='pt_BR')}"), width="auto"),
-                                ],
-                                className="my-1 flex-wrap"
-                            ),
-                        ]
-                    ),
-                ],
-                id=f"{cliente}-button",
-                n_clicks=0,
-                className="mb-3 btn btn-outline-secondary btn-lg btn-block btn-3d",
-                style={'width': '300px', 'height': '190px', 'background-color': '#F2F2F2'}
-            )
-        )
-    return botoes_clientes
-
-
-
 @app.callback(
     Output('start-date-picker-single', 'date'),
     Output('end-date-picker-single', 'date'),
+    Output('date-selected', 'children'),
+    Output('url', 'pathname'),
     [Input('alterar-button', 'n_clicks')],
     [State('start-date-picker-single', 'date'),
     State('end-date-picker-single', 'date'),
@@ -281,16 +275,24 @@ def update_dates(n_clicks, date1, date2):
     global start_date, end_date
     if n_clicks is not None:
         if date1 and date2:
-            # Converter as datas selecionadas em objetos de data
             start_date = date1
             end_date = date2
-    
+    new_start_date = date1
 
-    # Retornar as datas selecionadas para atualizar os date-pickers
-    return start_date, end_date
+    if start_date == end_date:
+        if start_date != new_start_date:
+            date_selected =  html.H2(f"Operação De {start_date.strftime('%d/%m/%Y')}", className="text-center")
+        else:
+            date_selected =  html.H2(f"Operação De {new_start_date[8:10]}/{new_start_date[5:7]}/{new_start_date[:4]}", className="text-center")
+    else:
+        date_selected =  html.H2(f"Operação De {start_date[8:10]}/{start_date[5:7]}/{start_date[:4]} a {end_date[8:10]}/{end_date[5:7]}/{end_date[:4]}", className="text-center")
+
+
+    return start_date, end_date, date_selected, '/'
 
 @app.callback(
-    [
+    [   Output('graph-postagem-funil', 'figure'),
+        Output('graph-faturamento-funil', 'figure'),
         Output('graph-servico-bar', 'figure'),
         Output('graph-postagem-bar', 'figure'),
         Output('graph-expresso', 'figure'),
@@ -302,14 +304,13 @@ def update_dates(n_clicks, date1, date2):
     ],
     [
         Input('secap-button', 'n_clicks'),
-        *[Input(f'cliente-button-{cliente}', 'n_clicks') for cliente in clientes_ordenados]
+        *[Input(f'cliente-button-{cliente}', 'n_clicks') for cliente in clientes_unicos]
     ],
     
 )
 def update_graphs(gccap_clicks, *cliente_clicks ):
-    # Acesse as datas armazenadas no date-store
    
-    range_date, total_postado, total_faturado, clientes_unicos, clientes_ordenados = atualiza_base_dados(start_date, end_date)
+    range_date, total_postado, total_faturado, clientes_unicos = atualiza_base_dados(start_date, end_date)
 
     ctx = dash.callback_context
     clicked_button_id = ctx.triggered[0]['prop_id'].split('.')[0]
@@ -343,6 +344,79 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
     cores_grafico_expresso = [cores.get(valor, 'gray') for valor in total_expresso_por_destino.index]
     cores_grafico_economico = [cores.get(valor, 'gray') for valor in total_economico_por_destino.index]
 
+    postagens_por_cliente = range_date.groupby('Cliente')['Objeto'].count().reset_index()
+    postagens_por_cliente.rename(columns={'Objeto': 'Postagens'}, inplace=True)
+
+    expresso_por_cliente = range_date[range_date['Serviço'] == 'EXPRESSO'].groupby('Cliente')['Objeto'].count().reset_index()
+    expresso_por_cliente.rename(columns={'Objeto': 'Expresso'}, inplace=True)
+
+    economico_por_cliente = range_date[range_date['Serviço'] == 'ECONÔMICO'].groupby('Cliente')['Objeto'].count().reset_index()
+    economico_por_cliente.rename(columns={'Objeto': 'Econômico'}, inplace=True)
+
+    resultado = postagens_por_cliente.merge(expresso_por_cliente, on='Cliente', how='left').merge(economico_por_cliente, on='Cliente', how='left')
+
+    resultado.fillna(0, inplace=True)
+    resultado.sort_values(by='Postagens', ascending=False, inplace=True)
+    resultado
+
+    melted_df = pd.melt(resultado, id_vars=['Cliente'], value_vars=['Expresso', 'Econômico'], var_name='Tipo', value_name='Quantidade')
+
+
+    melted_df['Cor'] = melted_df['Tipo'].map({'Expresso': '#FFD700', 'Econômico': '#0000CD'})
+
+    fig_postagem = go.Figure()
+
+    tipos_de_servico = melted_df['Tipo'].unique()
+
+    for tipo in tipos_de_servico:
+        tipo_df = melted_df[melted_df['Tipo'] == tipo]
+        fig_postagem.add_trace(go.Funnel(
+            name=tipo,
+            y=tipo_df['Cliente'],
+            x=tipo_df['Quantidade'],
+            textinfo="value",
+            text=tipo_df['Quantidade'],
+            marker=dict(color=tipo_df['Cor'].iloc[0])
+        ))  
+
+    faturamento_por_cliente = range_date.groupby('Cliente')['Valor'].sum().reset_index()
+    valor_expresso_por_cliente = range_date[range_date['Serviço'] == 'EXPRESSO'].copy()
+    valor_expresso_por_cliente = valor_expresso_por_cliente.groupby('Cliente')['Valor'].sum().reset_index()
+    valor_expresso_por_cliente.rename(columns={'Valor': 'Expresso'}, inplace=True)
+
+    valor_economico_por_cliente = range_date[range_date['Serviço'] == 'ECONÔMICO'].copy()
+    valor_economico_por_cliente = valor_economico_por_cliente.groupby('Cliente')['Valor'].sum().reset_index()
+    valor_economico_por_cliente.rename(columns={'Valor': 'Econômico'}, inplace=True)
+
+    resultado_faturamento = faturamento_por_cliente.merge(valor_expresso_por_cliente, on='Cliente', how='left')
+    resultado_faturamento = resultado_faturamento.merge(valor_economico_por_cliente, on='Cliente', how='left')
+
+    resultado_faturamento.fillna(0, inplace=True)
+    resultado_faturamento.rename(columns={'Valor': 'Faturamento'}, inplace=True)
+    resultado_faturamento.sort_values(by='Faturamento', ascending=False, inplace=True)
+
+    melted_faturamento = resultado_faturamento.melt(id_vars=['Cliente'], value_vars=['Expresso', 'Econômico'], var_name='Tipo', value_name='Valor')
+
+
+    cor_tipo_servico = {'Expresso': '#FFD700', 'Econômico': '#0000CD'}
+    fig_faturamento = go.Figure()
+
+    for tipo in melted_faturamento['Tipo'].unique():
+        tipo_df = melted_faturamento[melted_faturamento['Tipo'] == tipo]
+        fig_faturamento.add_trace(go.Funnel(
+            name=tipo, 
+            y=tipo_df['Cliente'],
+            x=tipo_df['Valor'],
+            textinfo="text",  
+            text=["{}".format(format_currency(valor, 'BRL', locale='pt_BR')) for valor in tipo_df['Valor']],
+            marker=dict(color=cor_tipo_servico[tipo]) 
+        ))
+
+    fig_faturamento.update_layout(
+        xaxis_title="Faturamento",
+        yaxis_title="Cliente",
+        template="plotly",
+    )
 
     fig_expresso = go.Figure(data=[go.Pie(labels=total_expresso_por_destino.index, values=total_expresso_por_destino.values, marker=dict(colors=cores_grafico_expresso))])
     fig_expresso.update_layout(title="Objetos por Destino")
@@ -409,8 +483,8 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
     fig_estados_economico.update_geos(fitbounds="locations", visible=False)
 
 
-    return fig_servico, fig_tipo_postagem, fig_expresso, fig_economico, fig_timeline, fig_estados_expresso, fig_estados_economico, subtitle
+    return fig_postagem, fig_faturamento, fig_servico, fig_tipo_postagem, fig_expresso, fig_economico, fig_timeline, fig_estados_expresso, fig_estados_economico, subtitle
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port=8050, debug=False)
+    app.run_server(host='0.0.0.0', port=8050, debug=True)
 
