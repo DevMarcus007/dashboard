@@ -335,9 +335,12 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
         
            
 
-    total_expresso_por_destino = df_filtered[df_filtered['Serviço'] == 'EXPRESSO'].groupby('Destino')['Objeto'].count()
-    total_economico_por_destino = df_filtered[df_filtered['Serviço'] == 'ECONÔMICO'].groupby('Destino')['Objeto'].count()
-    df_filtered['UF'] = df_filtered['UF'].str.upper()
+    # total_expresso_por_destino = df_filtered[df_filtered['Serviço'] == 'EXPRESSO'].groupby('Destino')['Objeto'].count()
+    # total_economico_por_destino = df_filtered[df_filtered['Serviço'] == 'ECONÔMICO'].groupby('Destino')['Objeto'].count()
+    total_expresso_por_destino = df_filtered.loc[df_filtered['Serviço'] == 'EXPRESSO'].groupby('Destino')['Objeto'].count()
+    total_economico_por_destino = df_filtered.loc[df_filtered['Serviço'] == 'ECONÔMICO'].groupby('Destino')['Objeto'].count()
+
+    df_filtered.loc[:, 'UF'] = df_filtered['UF'].str.upper()
     
    
     cores = {'OUTROS ESTADOS': 'red', 'RIO DE JANEIRO': 'green'}
@@ -486,5 +489,5 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
     return fig_postagem, fig_faturamento, fig_servico, fig_tipo_postagem, fig_expresso, fig_economico, fig_timeline, fig_estados_expresso, fig_estados_economico, subtitle
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port=8050, debug=True)
+    app.run_server(host='0.0.0.0', port=8050, debug=False)
 
