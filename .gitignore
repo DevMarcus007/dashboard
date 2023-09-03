@@ -1,11 +1,16 @@
 #Ignora os arquivos de configuração com informações sensíveis
 *ajuste_de_bd.ipynb
 *app_data.py
-*app_v2.2.0 copy.py
+*app_v2.2.0_copy.py
+*app_v3.0.py
 *app.py
 *dashboard.py
-*post_base_2.db
-*graficos.ipynb
+*post_base.db
+*test.py
+*teste.py
+*teste2.py
+
+
 
 #Ignora a pasta do ambiente virtual
 env_dash

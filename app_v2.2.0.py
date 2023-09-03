@@ -6,7 +6,7 @@ from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 from babel.numbers import format_number, format_decimal
-from datetime import date
+from datetime import date, datetime
 import json
 import requests
 import plotly.express as px
@@ -102,7 +102,31 @@ app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 sidebar = dbc.Nav(buttons, vertical=True, pills=True)
 
 main_content = html.Div(
-    [
+    [html.Div(
+        [
+            dcc.DatePickerSingle(
+                id='start-date-picker-single',
+                date = end_date,
+                calendar_orientation = 'vertical',
+                clearable = True,
+                with_portal=True,
+                display_format='DD/MM/YYYY',
+                className='mb-4'
+            ),
+            dcc.DatePickerSingle(
+                id='end-date-picker-single',
+                date = end_date,
+                calendar_orientation = 'vertical',
+                clearable = True,
+                with_portal=True,
+                display_format='DD/MM/YYYY',
+                className='mb-4'
+            ),
+            html.Button('Alterar Data', id='alterar-button', className='btn btn-primary ml-2', style={"height":'46px'}),
+
+        ],
+        className='d-flex justify-content-end'
+    ),
     
         html.H2(f"Setor de Captação - Operação de {end_date.strftime('%d/%m/%Y')}", className="text-center"),
         html.H2(id='date-selected', className="text-center"),
@@ -246,23 +270,46 @@ def renderizar_botoes_clientes(clientes_ordenados, total_postado, total_faturado
 
 
 @app.callback(
-    Output('graph-servico-bar', 'figure'),
-    Output('graph-postagem-bar', 'figure'),
-    Output('graph-expresso', 'figure'),
-    Output('graph-economico', 'figure'),
-    Output('graph-timeline', 'figure'),
-    Output('graph-estados-expresso', 'figure'),
-    Output('graph-estados-economico', 'figure'),
+    Output('start-date-picker-single', 'date'),
+    Output('end-date-picker-single', 'date'),
+    [Input('alterar-button', 'n_clicks')],
+    [State('start-date-picker-single', 'date'),
+    State('end-date-picker-single', 'date'),
+    ]
+)
+def update_dates(n_clicks, date1, date2):
+    global start_date, end_date
+    if n_clicks is not None:
+        if date1 and date2:
+            # Converter as datas selecionadas em objetos de data
+            start_date = date1
+            end_date = date2
+    
 
-    Output('subtitle', 'children'),
+    # Retornar as datas selecionadas para atualizar os date-pickers
+    return start_date, end_date
+
+@app.callback(
+    [
+        Output('graph-servico-bar', 'figure'),
+        Output('graph-postagem-bar', 'figure'),
+        Output('graph-expresso', 'figure'),
+        Output('graph-economico', 'figure'),
+        Output('graph-timeline', 'figure'),
+        Output('graph-estados-expresso', 'figure'),
+        Output('graph-estados-economico', 'figure'),
+        Output('subtitle', 'children'),
+    ],
     [
         Input('secap-button', 'n_clicks'),
         *[Input(f'cliente-button-{cliente}', 'n_clicks') for cliente in clientes_ordenados]
     ],
-   
+    
 )
-
-def update_graphs(gccap_clicks, *cliente_clicks):
+def update_graphs(gccap_clicks, *cliente_clicks ):
+    # Acesse as datas armazenadas no date-store
+   
+    range_date, total_postado, total_faturado, clientes_unicos, clientes_ordenados = atualiza_base_dados(start_date, end_date)
 
     ctx = dash.callback_context
     clicked_button_id = ctx.triggered[0]['prop_id'].split('.')[0]
@@ -364,7 +411,6 @@ def update_graphs(gccap_clicks, *cliente_clicks):
 
     return fig_servico, fig_tipo_postagem, fig_expresso, fig_economico, fig_timeline, fig_estados_expresso, fig_estados_economico, subtitle
 
-
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port=8050, debug=True)
+    app.run_server(host='0.0.0.0', port=8050, debug=False)
 
