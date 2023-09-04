@@ -212,9 +212,6 @@ main_content = html.Div(
             className="mb-3 text-center",
         ),
 
-        dbc.Row(
-            [
-                dbc.Col(
                     dbc.Card(
                         [
                             dbc.CardHeader(html.Strong("Postagem EXPRESSA por Estados", style={'font-size': '16px', 'font-weight': 'bold'})),
@@ -224,9 +221,7 @@ main_content = html.Div(
                         ],
                         className="mb-3 text-center",
                     ),
-                    width={'size': 6, 'sm': 12, 'md': 6}
-                ),
-                dbc.Col(
+                    
                     dbc.Card(
                         [
                             dbc.CardHeader(html.Strong("Postagem ECONOMICA por Estados", style={'font-size': '16px', 'font-weight': 'bold'})),
@@ -236,10 +231,7 @@ main_content = html.Div(
                         ],
                         className="mb-3 text-center",
                     ),
-                    width={'size': 6, 'sm': 12, 'md': 6}
-                ),
-            ]
-        ),
+                   
 
         dcc.Location(id='url', refresh=True),
 
@@ -335,13 +327,10 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
         
            
 
-    # total_expresso_por_destino = df_filtered[df_filtered['Serviço'] == 'EXPRESSO'].groupby('Destino')['Objeto'].count()
-    # total_economico_por_destino = df_filtered[df_filtered['Serviço'] == 'ECONÔMICO'].groupby('Destino')['Objeto'].count()
     total_expresso_por_destino = df_filtered.loc[df_filtered['Serviço'] == 'EXPRESSO'].groupby('Destino')['Objeto'].count()
     total_economico_por_destino = df_filtered.loc[df_filtered['Serviço'] == 'ECONÔMICO'].groupby('Destino')['Objeto'].count()
-
     df_filtered.loc[:, 'UF'] = df_filtered['UF'].str.upper()
-    
+
    
     cores = {'OUTROS ESTADOS': 'red', 'RIO DE JANEIRO': 'green'}
     cores_grafico_expresso = [cores.get(valor, 'gray') for valor in total_expresso_por_destino.index]
@@ -356,31 +345,64 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
     economico_por_cliente = range_date[range_date['Serviço'] == 'ECONÔMICO'].groupby('Cliente')['Objeto'].count().reset_index()
     economico_por_cliente.rename(columns={'Objeto': 'Econômico'}, inplace=True)
 
-    resultado = postagens_por_cliente.merge(expresso_por_cliente, on='Cliente', how='left').merge(economico_por_cliente, on='Cliente', how='left')
+    resultado_postagem = postagens_por_cliente.merge(expresso_por_cliente, on='Cliente', how='left').merge(economico_por_cliente, on='Cliente', how='left')
 
-    resultado.fillna(0, inplace=True)
-    resultado.sort_values(by='Postagens', ascending=False, inplace=True)
-    resultado
+    resultado_postagem.fillna(0, inplace=True)
+    resultado_postagem.sort_values(by='Postagens', ascending=False, inplace=True)
+    resultado_postagem = resultado_postagem.reset_index(drop=True)
+    
 
-    melted_df = pd.melt(resultado, id_vars=['Cliente'], value_vars=['Expresso', 'Econômico'], var_name='Tipo', value_name='Quantidade')
-
+    melted_df = pd.melt(resultado_postagem, id_vars=['Cliente'], value_vars=['Expresso', 'Econômico'], var_name='Tipo', value_name='Quantidade')
 
     melted_df['Cor'] = melted_df['Tipo'].map({'Expresso': '#FFD700', 'Econômico': '#0000CD'})
 
+
+    resultado_postagem['Porcentagem_Expresso'] = (resultado_postagem['Expresso'] / resultado_postagem['Postagens']) * 100
+    resultado_postagem['Porcentagem_Econômico'] = (resultado_postagem['Econômico'] / resultado_postagem['Postagens']) * 100
+
+    resultado_postagem = resultado_postagem.sort_values(by='Postagens', ascending=False)
+
     fig_postagem = go.Figure()
 
-    tipos_de_servico = melted_df['Tipo'].unique()
+    fig_postagem.add_trace(go.Bar(
+        y=resultado_postagem['Cliente'],
+        x=resultado_postagem['Expresso'],
+        name='Expresso',
+        orientation='h',
+        marker=dict(color='#FFD700'),
+        hovertemplate='Expresso: %{x} Objetos<br>%{customdata[0]:.2f}%'
+    ))
 
-    for tipo in tipos_de_servico:
-        tipo_df = melted_df[melted_df['Tipo'] == tipo]
-        fig_postagem.add_trace(go.Funnel(
-            name=tipo,
-            y=tipo_df['Cliente'],
-            x=tipo_df['Quantidade'],
-            textinfo="value",
-            text=tipo_df['Quantidade'],
-            marker=dict(color=tipo_df['Cor'].iloc[0])
-        ))  
+    fig_postagem.add_trace(go.Bar(
+        y=resultado_postagem['Cliente'],
+        x=resultado_postagem['Econômico'],
+        name='Econômico',
+        orientation='h',
+        marker=dict(color='#0000CD'),
+        hovertemplate="Econômico: %{x} Objetos<br>%{customdata[1]:.2f}%",
+    ))
+
+    for i, total in enumerate(resultado_postagem['Postagens']):
+        fig_postagem.add_annotation(
+            x=total,
+            y=resultado_postagem['Cliente'][i],
+            text=total,
+            showarrow=False,
+            xref='x',  
+            yref='y',  
+            xshift=25, 
+            font=dict(size=12, color='black')
+        )
+
+    fig_postagem.update_layout(
+
+        barmode='stack',
+        legend=dict(title_text='  Serviço', x=0.35, y=1.3),
+    )
+
+    fig_postagem.update_traces(
+        customdata=resultado_postagem[['Porcentagem_Expresso', 'Porcentagem_Econômico']],
+    )
 
     faturamento_por_cliente = range_date.groupby('Cliente')['Valor'].sum().reset_index()
     valor_expresso_por_cliente = range_date[range_date['Serviço'] == 'EXPRESSO'].copy()
@@ -397,35 +419,62 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
     resultado_faturamento.fillna(0, inplace=True)
     resultado_faturamento.rename(columns={'Valor': 'Faturamento'}, inplace=True)
     resultado_faturamento.sort_values(by='Faturamento', ascending=False, inplace=True)
+    resultado_faturamento = resultado_faturamento.reset_index(drop=True)
 
-    melted_faturamento = resultado_faturamento.melt(id_vars=['Cliente'], value_vars=['Expresso', 'Econômico'], var_name='Tipo', value_name='Valor')
+    resultado_faturamento['Porcentagem_Expresso'] = (resultado_faturamento['Expresso'] / resultado_faturamento['Faturamento']) * 100
+    resultado_faturamento['Porcentagem_Econômico'] = (resultado_faturamento['Econômico'] / resultado_faturamento['Faturamento']) * 100
 
+    resultado_faturamento = resultado_faturamento.sort_values(by='Faturamento', ascending=False)
 
-    cor_tipo_servico = {'Expresso': '#FFD700', 'Econômico': '#0000CD'}
     fig_faturamento = go.Figure()
 
-    for tipo in melted_faturamento['Tipo'].unique():
-        tipo_df = melted_faturamento[melted_faturamento['Tipo'] == tipo]
-        fig_faturamento.add_trace(go.Funnel(
-            name=tipo, 
-            y=tipo_df['Cliente'],
-            x=tipo_df['Valor'],
-            textinfo="text",  
-            text=["{}".format(format_currency(valor, 'BRL', locale='pt_BR')) for valor in tipo_df['Valor']],
-            marker=dict(color=cor_tipo_servico[tipo]) 
-        ))
+    fig_faturamento.add_trace(go.Bar(
+        y=resultado_faturamento['Cliente'],
+        x=resultado_faturamento['Expresso'],
+        name='Expresso',
+        orientation='h',
+        marker=dict(color='#FFD700'),
+        hovertemplate='Expresso: R$ %{x:$.,2f}<br>%{customdata[0]:.2f}%'
+    ))
+
+    fig_faturamento.add_trace(go.Bar(
+        y=resultado_faturamento['Cliente'],
+        x=resultado_faturamento['Econômico'],
+        name='Econômico',
+        orientation='h',
+        marker=dict(color='#0000CD'),
+        hovertemplate="Econômico: R$ %{x:$.,2f}<br>%{customdata[1]:.2f}%",
+    ))
+
+    for i, total in enumerate(resultado_faturamento['Faturamento']):
+        formatted_value = format_currency(total, 'BRL', locale='pt_BR')
+        fig_faturamento.add_annotation(
+            x=total,
+            y=resultado_faturamento['Cliente'][i],
+            text=formatted_value,
+            showarrow=False,
+            xref='x',  
+            yref='y',  
+            xshift=45, 
+            font=dict(size=12, color='black')
+        )
 
     fig_faturamento.update_layout(
-        xaxis_title="Faturamento",
-        yaxis_title="Cliente",
-        template="plotly",
+        barmode='stack',
+        legend=dict(title_text='  Serviço', x=0.35, y=1.3),
+    )
+
+    fig_faturamento.update_traces(
+        customdata=resultado_faturamento[['Porcentagem_Expresso', 'Porcentagem_Econômico']],
     )
 
     fig_expresso = go.Figure(data=[go.Pie(labels=total_expresso_por_destino.index, values=total_expresso_por_destino.values, marker=dict(colors=cores_grafico_expresso))])
     fig_expresso.update_layout(title="Objetos por Destino")
+    fig_expresso.update_layout(autosize=True)
 
     fig_economico = go.Figure(data=[go.Pie(labels=total_economico_por_destino.index, values=total_economico_por_destino.values, marker=dict(colors=cores_grafico_economico))])
     fig_economico.update_layout(title="Objetos por Destino")
+    fig_economico.update_layout(autosize=True)
 
 
     cores_servico = {'EXPRESSO': '#FFD700', 'ECONÔMICO': '#0000CD'}
@@ -434,7 +483,7 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
     fig_servico = go.Figure(data=[go.Bar(y=servico.index, x=servico.values, orientation='h', marker=dict(color=cores_grafico_servico))])
     fig_servico.update_traces(width=0.35)
 
-    fig_servico.update_layout()
+    fig_servico.update_layout(autosize=True)
 
     cores_postagem = {'AUTOMÁTICO': '#FFD700', 'MANUAL': '#0000CD'}
     cores_grafico_postagem = [cores_postagem.get(valor, 'gray') for valor in postagem.index]
@@ -442,11 +491,12 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
     fig_tipo_postagem = go.Figure(data=[go.Bar(y=postagem.index, x=postagem.values, orientation='h', marker=dict(color=cores_grafico_postagem))])
     fig_tipo_postagem.update_traces(width=0.35)
 
-    fig_tipo_postagem.update_layout()  
+    fig_tipo_postagem.update_layout(autosize=True)
 
     fig_timeline = go.Figure(data=[go.Bar(x=total_objetos_por_data.index, y=total_objetos_por_data.values, text=total_objetos_por_data.values, textposition='auto')])
     fig_timeline.update_traces(marker=dict(color='#FFD700'), textangle=0)
     fig_timeline.update_layout(title="Objetos Postados")
+    fig_timeline.update_layout(autosize=True)
 
     todos_estados = pd.DataFrame({'UF': range_date.UF.unique()})
     total_expresso_por_destino = df_filtered[df_filtered['Serviço'] == 'EXPRESSO']
@@ -467,6 +517,7 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
                         template='plotly')
 
     fig_estados_expresso.update_geos(fitbounds="locations", visible=False)
+    
 
 
     total_postagem_por_estado = total_economico_por_destino.groupby('UF')['Objeto'].count().reset_index()
@@ -484,6 +535,8 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
                         template='plotly')
 
     fig_estados_economico.update_geos(fitbounds="locations", visible=False)
+    
+
 
 
     return fig_postagem, fig_faturamento, fig_servico, fig_tipo_postagem, fig_expresso, fig_economico, fig_timeline, fig_estados_expresso, fig_estados_economico, subtitle
