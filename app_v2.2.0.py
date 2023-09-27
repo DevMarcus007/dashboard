@@ -115,16 +115,19 @@ main_content = html.Div(
     
         html.H2(id='date-selected', className="text-center"),
 
-        html.Div(id='subtitle', className="text-center"),
         dbc.Row(
             [
                 dbc.Col(
                     dbc.Card(
                         [
                             dbc.CardHeader(html.Strong("Postagem", style={'font-size': '16px', 'font-weight': 'bold'})),
-                            dbc.CardBody(
-                                dcc.Graph(id='graph-postagem-funil')
-                            ),
+                            
+                                        dbc.CardBody([
+                                            html.Div(id='total-postado'),
+                                            html.P("Objetos Postados pela SECAP", style={'font-weight': 'bold'}),
+                                            dcc.Graph(id='graph-postagem-funil')
+                                ]),
+
                         ],
                         className="mb-3 text-center",
                     ),
@@ -134,9 +137,14 @@ main_content = html.Div(
                     dbc.Card(
                         [
                             dbc.CardHeader(html.Strong("Faturamento", style={'font-size': '16px', 'font-weight': 'bold'})),
-                            dbc.CardBody(
-                                dcc.Graph(id='graph-faturamento-funil')
-                            ),
+                                
+                                        dbc.CardBody([
+                                            html.Div(id='total-faturamento'),
+                                            html.P("Reais Faturados pela SECAP", style={'font-weight': 'bold'}),
+                                            dcc.Graph(id='graph-faturamento-funil')
+
+                                        ])
+                       
                         ],
                         className="mb-3 text-center",
                     ),
@@ -144,6 +152,11 @@ main_content = html.Div(
                 ),
             ]
         ),
+
+        html.Div(style={'width': '100%', 'height': '2px', 'background-color': 'black'}), 
+        html.Div(style={'width': '100%', 'height': '10px'}),
+        html.H2(id='subtitle', className="text-center"),
+        html.Div(style={'width': '100%', 'height': '20px'}),
 
         dbc.Row(
             [
@@ -293,6 +306,8 @@ def update_dates(n_clicks, date1, date2):
         Output('graph-estados-expresso', 'figure'),
         Output('graph-estados-economico', 'figure'),
         Output('subtitle', 'children'),
+        Output('total-postado', 'children'),
+        Output('total-faturamento', 'children'),
     ],
     [
         Input('secap-button', 'n_clicks'),
@@ -312,7 +327,7 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
         total_objetos_por_data = timeline_postagem_secap
         subtitle = ""
         postagem = range_date.groupby('Postagem')['Objeto'].count()
-        servico = range_date.groupby('Serviço')['Objeto'].count().sort_index(ascending=False)
+        servico = range_date.groupby('Serviço')['Objeto'].count().sort_index(ascending=False) 
         
 
     else:
@@ -326,6 +341,9 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
         servico = df_filtered.groupby('Serviço')['Objeto'].count().sort_index(ascending=False)
         
            
+    total_postado = html.H4(f"{range_date['Objeto'].count()}", className="text-center")
+    faturamento_formatado = format_currency(range_date['Valor'].sum(), 'BRL', locale='pt_BR')
+    total_faturamento = html.H4(f"{faturamento_formatado}", className="text-center")
 
     total_expresso_por_destino = df_filtered.loc[df_filtered['Serviço'] == 'EXPRESSO'].groupby('Destino')['Objeto'].count()
     total_economico_por_destino = df_filtered.loc[df_filtered['Serviço'] == 'ECONÔMICO'].groupby('Destino')['Objeto'].count()
@@ -539,7 +557,7 @@ def update_graphs(gccap_clicks, *cliente_clicks ):
 
 
 
-    return fig_postagem, fig_faturamento, fig_servico, fig_tipo_postagem, fig_expresso, fig_economico, fig_timeline, fig_estados_expresso, fig_estados_economico, subtitle
+    return fig_postagem, fig_faturamento, fig_servico, fig_tipo_postagem, fig_expresso, fig_economico, fig_timeline, fig_estados_expresso, fig_estados_economico, subtitle, total_postado, total_faturamento
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=8050, debug=False)

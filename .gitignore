@@ -10,7 +10,8 @@
 *teste.py
 *teste2.py
 *test_responsive.py
-
+*create_bd_postagens.sql
+*popula_banco_dashboard_internet.ipynb
 
 
 #Ignora a pasta do ambiente virtual
