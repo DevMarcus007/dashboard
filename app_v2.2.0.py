@@ -11,10 +11,13 @@ import json
 import requests
 import plotly.express as px
 
-conn = sqlite3.connect('operation_base.db')
-query = "SELECT * FROM postagens"
-df_secap = pd.read_sql_query(query, conn)
-conn.close()
+# conn = sqlite3.connect('operation_base.db')
+# query = "SELECT * FROM postagens"
+# df_secap = pd.read_sql_query(query, conn)
+# conn.close()
+
+df_secap = pd.read_parquet('operations_base.parquet')
+
 
 df_secap["Data"] = pd.to_datetime(df_secap["Data"], dayfirst=True)
 start_date = df_secap["Data"].max()
